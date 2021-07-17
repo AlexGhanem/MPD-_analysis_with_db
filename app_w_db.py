@@ -16,17 +16,30 @@ from itertools import cycle
 from dash.dependencies import Input, Output
 import json
 from furnish_data import furnish_arrests, furnish_daily, furnish_geo, furnish_hourly, furnish_stops
+from rq import Queue
+from worker import conn
+
+
 
 pd.options.plotting.backend = "plotly"
 
-#data retrieval
-districts_geo = gp.read_file('./Data/Police_Districts/Police_Districts.shp')
-df_arrests = furnish_arrests()
-data_full = furnish_stops()
-daily_count = furnish_daily(data_full)
-hourly_count = furnish_hourly(data_full)
-districts_geo = furnish_geo(data_full, districts_geo)
 
+
+#data retrieval
+
+q = Queue(connection=conn)
+
+districts_geo = gp.read_file('./Data/Police_Districts/Police_Districts.shp')
+df_arrests_job = q.enqueue(furnish_arrests)
+df_arrests = df_arrests_job.result
+data_full_job = q.enqueue(furnish_stops)
+data_full = data_full_job.result
+daily_count_job = q.enqueue(furnish_daily , data_full)
+hourly_count_job = q.enqueue(furnish_hourly, data_full)
+# districts_geo_job = q.enqueue(furnish_geo, data_full, districts_geo)
+# districts_geo = districts_geo_job.result
+daily_count = daily_count_job.result
+hourly_count = hourly_count_job.result
 
 
 #The Dashboard
